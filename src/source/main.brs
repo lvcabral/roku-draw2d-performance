@@ -23,6 +23,7 @@ sub main()
   doRegionCreationTests = true
   doCompositingTests = true
 
+  m.fullResult = []
   m.fullResultText = []
 
   printHeaderDetails()
@@ -66,12 +67,12 @@ sub main()
     runBenchmark("ManualSprites", testManualSprites, repeat)
   end if
 
+  calculateScore()
+
   showResultsOnScreen()
 
   sleep(2000)
 end sub
-
-
 
 sub printHeaderDetails()
   appInfo = CreateObject("roAppInfo")
@@ -79,7 +80,15 @@ sub printHeaderDetails()
 
 
   m.fullResultText.push("Roku Draw2d Performance Benchmark Tool - v" + appInfo.GetVersion())
-  m.fullResultText.push(deviceInfo.GetModelDisplayName() + " (" + deviceInfo.GetModelDetails().modelNumber + ") " + deviceInfo.GetModelType())
+  if deviceInfo.hasFeature("simulation_engine")
+    simulatorInfo = deviceInfo.getFriendlyName() + " - Platform: " + GetSimulatorPlatform(deviceInfo) + " - Roku OS: " + GetOSVersion(deviceInfo)
+    if deviceInfo.GetModelDetails().serialNumber <> invalid
+      simulatorInfo += "Serial Number: " + deviceInfo.GetModelDetails().serialNumber
+    end if
+    m.fullResultText.push(simulatorInfo)
+  else
+    m.fullResultText.push(deviceInfo.GetModelDisplayName() + " (" + deviceInfo.GetModelDetails().modelNumber + ") " + deviceInfo.GetModelType() + " - Roku OS: " + GetOSVersion(deviceInfo))
+  end if
   m.fullResultText.push("Screen Size: " + m.screenW.toStr() + "x" + m.screenH.toStr() + ", Framerate Target: " + m.drawFpsTarget.toStr() + "fps, Max Test Time (ms): " + m.maxTestTimeMs.toStr())
   m.fullResultText.push(getCSVHeaderLine())
 
@@ -88,7 +97,44 @@ sub printHeaderDetails()
   end for
 end sub
 
+function GetOSVersion(di) as string
+  OSVersion = di.GetOSVersion()
+  return OSVersion.major + "." + OSVersion.minor + "." + OSVersion.revision + "." + OSVersion.build
+end function
 
+function GetSimulatorPlatform(di) as string
+  platformInfo = ""
+  if di.hasFeature("platform_browser")
+    if di.hasFeature("platform_chromium")
+      platformInfo = "Chromium"
+    else if di.hasFeature("platform_firefox")
+      platformInfo = "Firefox"
+    else if di.hasFeature("platform_safari")
+      platformInfo = "Safari"
+    end if
+  else
+    platformInfo = "NodeJS"
+  end if
+
+  if di.hasFeature("platform_electron")
+    platformInfo = " (Electron)"
+  end if
+
+  if di.hasFeature("platform_windows")
+    platformInfo += " Windows"
+  else if di.hasFeature("platform_macos")
+    platformInfo += " macOS"
+  else if di.hasFeature("platform_linux")
+    platformInfo += " Linux"
+  else if di.hasFeature("platform_chromeos")
+    platformInfo += " ChromeOS"
+  else if di.hasFeature("platform_android")
+    platformInfo += " Android"
+  else if di.hasFeature("platform_ios")
+    platformInfo += " iOS"
+  end if
+  return platformInfo
+end function
 
 sub runBenchmark(benchmarkName, testFunction, repeat, dynamicallyScale = true)
   i = 0
@@ -152,9 +198,54 @@ sub runBenchmark(benchmarkName, testFunction, repeat, dynamicallyScale = true)
   benchmarkResult = buildBenchmarkResult(benchmarkName, not testNotSupported, totalTime, frameCount, i, totalSwapTime, opsPerSwap)
   resultCsvLine = getCSVResultLine(benchmarkResult)
   ? resultCsvLine
+  m.fullResult.push(benchmarkResult)
   m.fullResultText.push(resultCsvLine)
 end sub
 
+
+sub calculateScore()
+  totalScore = 0
+  totalTime = 0
+  totalOpsPerFrame = 0
+  totalOpsPerSecond = 0
+  totalOpsToReachTarget = 0
+  maxOpsPerFrame = 0
+  maxOpsPerSecond = 0
+  maxOpsToReachTarget = 0
+  validResults = 0
+  for each result in m.fullResult
+    if result.didRun
+      validResults += 1
+      totalTime += result.totalTime
+      totalOpsPerFrame += result.opsPerFrame
+      if result.opsPerFrame > maxOpsPerFrame
+        maxOpsPerFrame = result.opsPerFrame
+      end if
+      totalOpsPerSecond += result.opsPerSecond
+      if result.opsPerSecond > maxOpsPerSecond
+        maxOpsPerSecond = result.opsPerSecond
+      end if
+      totalOpsToReachTarget += result.avgOpsToReachTarget
+      if result.avgOpsToReachTarget > maxOpsToReachTarget
+        maxOpsToReachTarget = result.avgOpsToReachTarget
+      end if
+    end if
+  end for
+  if validResults > 0
+    avgOpsPerFrame = totalOpsPerFrame / validResults
+    avgOpsPerSecond = totalOpsPerSecond / validResults
+    avgOpsToReachTarget = totalOpsToReachTarget / validResults
+    totalScore = ((avgOpsPerFrame / maxOpsPerFrame) * (avgOpsPerSecond / maxOpsPerSecond) * (avgOpsToReachTarget / maxOpsToReachTarget)) ^ (1 / 3)
+    totalScore = totalScore * validResults
+    totalScore = totalScore / m.fullResult.count()
+  end if
+  totalScoreLine = "Total Score: " + totalScore.toStr()
+  ? totalScoreLine
+  m.fullResultText.push(totalScoreLine)
+  totalTimeLine = "Total Time: " + Int(totalTime/1000).toStr() + " seconds"
+  ? totalTimeLine
+  m.fullResultText.push(totalTimeLine)
+end sub
 
 
 sub showResultsOnScreen()

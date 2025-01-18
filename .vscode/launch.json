@@ -11,7 +11,8 @@
       "host": "${promptForHost}",
       "password": "${promptForPassword}",
       "rootDir": "${workspaceFolder}/src",
-      "stopDebuggerOnAppExit": true
+      "stopDebuggerOnAppExit": true,
+      "rendezvousTracking": false
     },
     {
       "name": "BrightScript Debug: Launch From ENV",
