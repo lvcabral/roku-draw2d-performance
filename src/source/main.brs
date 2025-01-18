@@ -83,7 +83,7 @@ sub printHeaderDetails()
   if deviceInfo.hasFeature("simulation_engine")
     simulatorInfo = deviceInfo.getFriendlyName() + " - Platform: " + GetSimulatorPlatform(deviceInfo) + " - Roku OS: " + GetOSVersion(deviceInfo)
     if deviceInfo.GetModelDetails().serialNumber <> invalid
-      simulatorInfo += "Serial Number: " + deviceInfo.GetModelDetails().serialNumber
+      simulatorInfo += " - Serial Number: " + deviceInfo.GetModelDetails().serialNumber
     end if
     m.fullResultText.push(simulatorInfo)
   else
